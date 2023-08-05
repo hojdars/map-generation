@@ -1,0 +1,9 @@
+- width: 1
+  height: 1
+  render: "#"
+- width: 5
+  height: 1
+  render: "w"
+- width: 10
+  height: 1
+  render: "W"
