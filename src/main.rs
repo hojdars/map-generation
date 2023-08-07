@@ -1,3 +1,4 @@
+use core::panic;
 use std::fs::File;
 
 use rand::prelude::*;
@@ -9,16 +10,24 @@ struct MapSize {
     height: u32,
 }
 
+type Wall = (u32, u32, u32, Orientation);
+
 impl MapSize {
     fn new(width: u32, height: u32) -> MapSize {
         MapSize { width, height }
     }
 
-    fn walls(&self) -> Vec<u32> {
-        vec![self.width, self.height, self.width, self.height]
+    fn walls(&self) -> Vec<Wall> {
+        vec![
+            (0, 0, self.width, Orientation::Left),
+            (0, 0, self.height, Orientation::Down),
+            (0, self.height, self.width, Orientation::Left),
+            (self.width, 0, self.height, Orientation::Down),
+        ]
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 enum Orientation {
     Up,
     Down,
@@ -32,18 +41,20 @@ impl Orientation {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct MapObject {
     x: u32,
     y: u32,
+    orientation: Orientation,
     prefab: Prefab,
 }
 
 impl MapObject {
-    fn new(x: u32, y: u32, prefab: &Prefab) -> MapObject {
+    fn new(x: u32, y: u32, orientation: Orientation, prefab: &Prefab) -> MapObject {
         MapObject {
             x,
             y,
+            orientation,
             prefab: prefab.clone(),
         }
     }
@@ -72,12 +83,13 @@ fn generate_walls(
     println!("loaded {} prefabs", prefabs.len());
 
     let mut result: [Vec<MapObject>; 4] = Default::default();
-    for (indx, wall_len) in map_size.walls().iter().enumerate() {
-        result[indx] = generate_wall(rng, *wall_len, &prefabs);
+    for (indx, wall) in map_size.walls().iter().enumerate() {
+        result[indx] = generate_wall(rng, wall, &prefabs);
         println!(
-            "generated wall #{} by using {} prefabs",
+            "generated wall #{} by using {} prefabs, wall {:?}",
             indx,
-            result[indx].len()
+            result[indx].len(),
+            result[indx]
         );
     }
 
@@ -88,19 +100,35 @@ fn generate_walls(
     result
 }
 
-fn generate_wall(rng: &mut ChaCha8Rng, wall_length: u32, prefabs: &Vec<Prefab>) -> Vec<MapObject> {
+fn generate_wall(rng: &mut ChaCha8Rng, parameters: &Wall, prefabs: &Vec<Prefab>) -> Vec<MapObject> {
     let mut result: Vec<MapObject> = Vec::new();
 
     let mut current_len: u32 = 0;
-    while current_len != wall_length {
+    while current_len != parameters.2 {
         let i = rng.gen_range(0..prefabs.len());
-        if current_len + prefabs[i].width > wall_length {
+        if current_len + prefabs[i].width > parameters.2 {
             continue;
         } else {
+            let x_coord: u32;
+            let y_coord: u32;
+            if parameters.3 == Orientation::Left {
+                x_coord = parameters.0 + current_len;
+                y_coord = parameters.1;
+            } else if parameters.3 == Orientation::Down {
+                x_coord = parameters.0;
+                y_coord = parameters.1 + current_len;
+            } else {
+                panic!("orientation of a wall should never be anything else than left or down");
+            }
+
             current_len += prefabs[i].width;
 
-            // TODO: Correctly fill in the x and y coordinates
-            result.push(MapObject::new(current_len, 0, &prefabs[i]));
+            result.push(MapObject::new(
+                x_coord,
+                y_coord,
+                parameters.3.clone(),
+                &prefabs[i],
+            ));
         }
     }
 
