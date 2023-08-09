@@ -1,7 +1,9 @@
+use macroquad::prelude::*;
+
 use core::panic;
 use std::fs::File;
 
-use rand::prelude::*;
+use ::rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 
@@ -169,9 +171,28 @@ fn render_map(map: &Map) {
     }
 }
 
-fn main() {
+#[macroquad::main("map-gen")]
+async fn main() {
     let seed = 2;
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let map = generate_map(&mut rng);
     render_map(&map);
+
+    let wall_texture: Texture2D = load_texture("textures/wall.png").await.unwrap();
+    wall_texture.set_filter(FilterMode::Nearest);
+
+    loop {
+        clear_background(LIGHTGRAY);
+        draw_texture_ex(
+            &wall_texture,
+            0.,
+            0.,
+            LIGHTGRAY,
+            DrawTextureParams {
+                dest_size: Some(vec2(160.0, 224.0)),
+                ..Default::default()
+            },
+        );
+        next_frame().await
+    }
 }
